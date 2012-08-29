@@ -250,3 +250,40 @@ class LookupsTest(TestCase):
 class JoinsTest(TestCase):
     pass
 
+#    def test_contains(self):
+#        # passes on production but not on gae-sdk (development)
+#        self.assertEqual(1, len(Indexed.objects.all().filter(name__contains='Aim')))
+#        self.assertEqual(1, len(Indexed.objects.all().filter(name__icontains='aim')))
+#
+#        self.assertEqual(1, ForeignIndexed.objects.filter(name_fi__icontains='Yu').count())
+#
+#        # test icontains on a list
+#        self.assertEqual(2, len(Indexed.objects.all().filter(tags__icontains='RA')))
+
+class Parent(models.Model):
+    pass
+
+class Child(models.Model):
+    parent = models.ForeignKey(Parent, null=True)
+
+class FKNullFixTest(TestCase):
+    def test_basic(self):
+        """
+        Verifies that the fix fixes filtering for entities without
+        a value for a ForeignKey.
+        """
+        parent = Parent.objects.create()
+        child1 = Child.objects.create(parent=parent)
+        child2 = Child.objects.create(parent=None)
+        self.assertEqual(list(Child.objects.filter(parent=parent)), [child1])
+        self.assertEqual(list(Child.objects.filter(parent=None)), [child2])
+
+    def test_queryset_reuse(self):
+        """
+        Checks that running the fix does not break internal QuerySet
+        data, by forcing it to run twice in a specific way.
+        See: https://github.com/django-nonrel/django-dbindexer/issues/7.
+        """
+        queryset = Child.objects.filter(parent=None)
+        list(queryset[:500])
+        list(queryset[:500])
